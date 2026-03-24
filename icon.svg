@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <rect width="192" height="192" fill="#111111"/>
+  <!-- Left chain link -->
+  <rect x="18" y="72" width="72" height="48" rx="24" ry="24" fill="none" stroke="#f97316" stroke-width="14"/>
+  <!-- Right chain link -->
+  <rect x="102" y="72" width="72" height="48" rx="24" ry="24" fill="none" stroke="#eab308" stroke-width="14"/>
+  <!-- Overlap fill to show interlocking -->
+  <rect x="91" y="80" width="14" height="32" fill="#111111"/>
+  <!-- Centre pin highlight -->
+  <circle cx="96" cy="96" r="6" fill="#f97316"/>
+</svg>
