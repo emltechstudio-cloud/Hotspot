@@ -1,0 +1,24 @@
+{
+  "name": "HotSpot",
+  "short_name": "HotSpot",
+  "description": "Deploy HTML sites instantly. Share the link. Take it down when done.",
+  "start_url": "./app.html",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#f97316",
+  "categories": ["utilities", "productivity"],
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

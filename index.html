@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HotSpot — Instant Site Deployment</title>
+    <meta name="description" content="Deploy HTML sites instantly. Share the link with your client. Take it down when done. No GitHub. No setup.">
+    <meta name="theme-color" content="#f97316">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        :root {
+            --orange:#f97316; --yellow:#eab308;
+            --bg:#ffffff; --surface:#f9fafb; --border:#e5e7eb;
+            --text:#111827; --muted:#6b7280;
+            --shadow:0 1px 6px rgba(0,0,0,.08); --shadow-lg:0 4px 20px rgba(0,0,0,.12);
+            --radius:14px;
+        }
+        [data-theme="dark"] {
+            --bg:#0f0f0f; --surface:#1a1a1a; --border:#2a2a2a;
+            --text:#f3f4f6; --muted:#9ca3af;
+        }
+        *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+        html{scroll-behavior:smooth}
+        body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);line-height:1.6;transition:background .3s,color .3s}
+        a{color:inherit;text-decoration:none}
+
+        /* NAV */
+        nav{position:sticky;top:0;z-index:200;background:var(--bg);border-bottom:1px solid var(--border);padding:0 24px;height:62px;display:flex;align-items:center;justify-content:space-between;transition:background .3s,border-color .3s}
+        .nav-logo{display:flex;align-items:center;gap:9px;user-select:none}
+        .nav-logo-icon{width:30px;height:30px;background:#111;border-radius:8px;display:flex;align-items:center;justify-content:center}
+        .nav-logo-icon svg{width:20px;height:20px}
+        .nav-logo-text{font-size:18px;font-weight:700;letter-spacing:-.3px;background:linear-gradient(90deg,var(--orange),var(--yellow));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+        .nav-right{display:flex;align-items:center;gap:4px}
+        .nav-link{color:var(--muted);font-size:14px;padding:7px 12px;border-radius:8px;transition:color .2s,background .2s;white-space:nowrap}
+        .nav-link:hover{color:var(--text);background:var(--surface)}
+        .theme-toggle{width:34px;height:34px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .2s}
+        .theme-toggle:hover{color:var(--text);border-color:var(--orange)}
+        .nav-open{background:var(--orange)!important;color:#fff!important;font-weight:600;border-radius:24px!important;padding:9px 20px!important;margin-left:4px;transition:opacity .2s!important}
+        .nav-open:hover{opacity:.88!important}
+        @media(max-width:640px){.nav-link:not(.nav-open){display:none}}
+
+        /* HERO */
+        .hero{min-height:90vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:72px 24px 60px;position:relative;overflow:hidden}
+        .hero::before{content:'';position:absolute;width:600px;height:400px;background:radial-gradient(circle,rgba(249,115,22,.07) 0%,transparent 70%);top:-60px;left:50%;transform:translateX(-50%);pointer-events:none}
+        .hero-badge{display:inline-flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:5px 14px;font-size:12px;color:var(--muted);margin-bottom:24px;letter-spacing:.04em}
+        .badge-dot{width:6px;height:6px;background:var(--orange);border-radius:50%;animation:blink 2s infinite}
+        @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+        .hero-logo{display:flex;align-items:center;gap:14px;margin-bottom:14px}
+        .hero-icon{width:72px;height:72px;background:#111;border-radius:20px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 32px rgba(249,115,22,.25)}
+        .hero-icon svg{width:50px;height:50px}
+        .hero-name{font-size:clamp(48px,10vw,80px);font-weight:800;letter-spacing:-2px;background:linear-gradient(90deg,var(--orange),var(--yellow));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1}
+        .hero-headline{font-size:clamp(22px,4vw,38px);font-weight:700;line-height:1.25;max-width:580px;margin-bottom:14px}
+        .hero-desc{font-size:16px;color:var(--muted);max-width:440px;margin-bottom:36px;line-height:1.75}
+        .hero-actions{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:36px}
+        .btn-primary{background:var(--orange);color:#fff;padding:14px 32px;border-radius:30px;font-size:16px;font-weight:700;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:9px;transition:opacity .2s,transform .2s;box-shadow:0 4px 18px rgba(249,115,22,.3)}
+        .btn-primary:hover{opacity:.88;transform:translateY(-2px)}
+        .btn-outline{background:transparent;color:var(--text);padding:14px 32px;border-radius:30px;font-size:16px;font-weight:500;border:1px solid var(--border);cursor:pointer;display:inline-flex;align-items:center;gap:9px;transition:border-color .2s,transform .2s,background .2s}
+        .btn-outline:hover{border-color:var(--orange);background:var(--surface);transform:translateY(-2px)}
+        .hero-proof{display:flex;gap:20px;color:var(--muted);font-size:13px;flex-wrap:wrap;justify-content:center}
+        .hero-proof span{display:flex;align-items:center;gap:5px}
+        .hero-proof i{color:var(--orange)}
+
+        /* SECTIONS */
+        section{padding:84px 24px}
+        .section-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:var(--orange);margin-bottom:12px}
+        .section-title{font-size:clamp(24px,4vw,38px);font-weight:700;line-height:1.22;margin-bottom:12px}
+        .section-sub{color:var(--muted);font-size:16px;max-width:480px;line-height:1.7}
+        .section-center{text-align:center;max-width:860px;margin:0 auto}
+
+        /* HOW */
+        #how{background:var(--surface);transition:background .3s}
+        .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin:48px auto 0;max-width:860px}
+        .step{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:24px;text-align:left;transition:transform .2s,box-shadow .2s}
+        .step:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg)}
+        .step-num{font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--muted);margin-bottom:12px}
+        .step-icon{width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:12px}
+        .step h3{font-size:15px;font-weight:600;margin-bottom:6px}
+        .step p{font-size:13px;color:var(--muted);line-height:1.6}
+
+        /* WHO */
+        #who{background:var(--bg);transition:background .3s}
+        .who-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin:48px auto 0;max-width:860px}
+        .who-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px;transition:transform .2s,box-shadow .2s}
+        .who-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg)}
+        .who-card i{font-size:24px;margin-bottom:12px;display:block}
+        .who-card h3{font-size:15px;font-weight:600;margin-bottom:6px}
+        .who-card p{font-size:13px;color:var(--muted);line-height:1.6}
+
+        /* TIERS */
+        #tiers{background:var(--surface);transition:background .3s}
+        .tier-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin:48px auto 0;max-width:700px}
+        .tier-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:26px;text-align:center}
+        .tier-card.featured{border-color:var(--orange);box-shadow:0 0 0 3px rgba(249,115,22,.1)}
+        .tier-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;margin-bottom:14px}
+        .tier-badge.free{background:rgba(249,115,22,.1);color:var(--orange)}
+        .tier-badge.pro{background:rgba(234,179,8,.1);color:var(--yellow)}
+        .tier-name{font-size:20px;font-weight:700;margin-bottom:4px}
+        .tier-price{font-size:13px;color:var(--muted);margin-bottom:16px}
+        .tier-features{list-style:none;text-align:left;margin-bottom:20px}
+        .tier-features li{font-size:13px;color:var(--muted);padding:5px 0;display:flex;align-items:center;gap:8px}
+        .tier-features li i{color:var(--orange);font-size:11px;flex-shrink:0}
+        .tier-cta{display:block;padding:11px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;text-align:center;transition:opacity .2s}
+        .tier-cta.orange{background:var(--orange);color:white}
+        .tier-cta.outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+        .tier-cta:hover{opacity:.82}
+
+        /* FEEDBACK */
+        #feedback{background:var(--bg);transition:background .3s}
+        .feedback-wrap{max-width:520px;margin:44px auto 0;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:32px;box-shadow:var(--shadow)}
+        .feedback-wrap h3{font-size:17px;font-weight:600;margin-bottom:18px}
+        .star-row{display:flex;gap:6px;margin-bottom:16px}
+        .star{font-size:28px;cursor:pointer;color:var(--border);transition:color .15s,transform .15s;user-select:none;line-height:1}
+        .star.lit,.star:hover{color:var(--yellow);transform:scale(1.15)}
+        .field{margin-bottom:14px}
+        .field label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px}
+        .field input,.field textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:11px 13px;font-size:14px;color:var(--text);outline:none;font-family:inherit;resize:vertical;transition:border-color .2s,background .3s}
+        .field input:focus,.field textarea:focus{border-color:var(--orange)}
+        .field textarea{min-height:100px}
+        .send-btn{width:100%;padding:12px;background:var(--orange);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity .2s}
+        .send-btn:hover{opacity:.88}
+
+        /* FOOTER */
+        footer{background:var(--bg);border-top:1px solid var(--border);padding:28px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;transition:background .3s,border-color .3s}
+        .footer-logo{display:flex;align-items:center;gap:8px}
+        .footer-logo-icon{width:26px;height:26px;background:#111;border-radius:7px;display:flex;align-items:center;justify-content:center}
+        .footer-logo-icon svg{width:18px;height:18px}
+        .footer-logo-text{font-size:16px;font-weight:700;background:linear-gradient(90deg,var(--orange),var(--yellow));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+        .footer-right{font-size:12px;color:var(--muted);text-align:right}
+        .footer-right a{color:var(--orange);text-decoration:underline;text-underline-offset:2px}
+        @media(max-width:480px){.hero{padding:52px 20px 44px}.tier-grid{grid-template-columns:1fr}.feedback-wrap{padding:22px 16px}footer{flex-direction:column;text-align:center}.footer-right{text-align:center}}
+    </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+    <div class="nav-logo">
+        <div class="nav-logo-icon">
+            <svg viewBox="0 0 36 36" fill="none"><rect x="1" y="11" width="16" height="14" rx="7" fill="none" stroke="#f97316" stroke-width="3"/><rect x="19" y="11" width="16" height="14" rx="7" fill="none" stroke="#eab308" stroke-width="3"/><rect x="16" y="13" width="4" height="10" fill="#111"/><circle cx="18" cy="18" r="2" fill="#f97316"/></svg>
+        </div>
+        <span class="nav-logo-text">HotSpot</span>
+    </div>
+    <div class="nav-right">
+        <a href="#how" class="nav-link">How it works</a>
+        <a href="#tiers" class="nav-link">Plans</a>
+        <a href="#feedback" class="nav-link">Feedback</a>
+        <a href="install.html" class="nav-link">Install</a>
+        <button class="theme-toggle" id="themeToggle"><i class="fas fa-moon" id="themeIcon"></i></button>
+        <a href="app.html" class="nav-link nav-open">Open App</a>
+    </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+    <div class="hero-badge"><span class="badge-dot"></span>MVP — Free for early users</div>
+    <div class="hero-logo">
+        <div class="hero-icon">
+            <svg viewBox="0 0 36 36" fill="none"><rect x="1" y="11" width="16" height="14" rx="7" fill="none" stroke="#f97316" stroke-width="3"/><rect x="19" y="11" width="16" height="14" rx="7" fill="none" stroke="#eab308" stroke-width="3"/><rect x="16" y="13" width="4" height="10" fill="#111"/><circle cx="18" cy="18" r="2" fill="#f97316"/></svg>
+        </div>
+        <span class="hero-name">HotSpot</span>
+    </div>
+    <h1 class="hero-headline">Deploy a site in seconds.<br>Share. Get paid. Move on.</h1>
+    <p class="hero-desc">No GitHub. No setup. Upload your HTML, pick a time frame, get a link. When the deal is done — delete it.</p>
+    <div class="hero-actions">
+        <a href="app.html" class="btn-primary"><i class="fas fa-bolt"></i> Deploy Now</a>
+        <a href="install.html" class="btn-outline"><i class="fas fa-download"></i> Install App</a>
+    </div>
+    <div class="hero-proof">
+        <span><i class="fas fa-fire-alt"></i> No GitHub exposure</span>
+        <span><i class="fas fa-fire-alt"></i> 30-second deploy</span>
+        <span><i class="fas fa-fire-alt"></i> Auto-expires</span>
+        <span><i class="fas fa-fire-alt"></i> Always free to start</span>
+    </div>
+</section>
+
+<!-- HOW -->
+<section id="how">
+    <div class="section-center">
+        <div class="section-label">How it works</div>
+        <h2 class="section-title">Four steps. Done.</h2>
+        <p class="section-sub">From file to live link in under a minute. No technical setup needed.</p>
+        <div class="steps">
+            <div class="step">
+                <div class="step-num">01</div>
+                <div class="step-icon" style="background:rgba(249,115,22,.1);color:var(--orange)"><i class="fas fa-user-plus"></i></div>
+                <h3>Sign up free</h3>
+                <p>Email and password. That's it. No card, no verification email, no setup.</p>
+            </div>
+            <div class="step">
+                <div class="step-num">02</div>
+                <div class="step-icon" style="background:rgba(234,179,8,.1);color:var(--yellow)"><i class="fas fa-upload"></i></div>
+                <h3>Upload your HTML file</h3>
+                <p>Pick your HTML file and choose how long the site should stay live — 24, 48 or 72 hours.</p>
+            </div>
+            <div class="step">
+                <div class="step-num">03</div>
+                <div class="step-icon" style="background:rgba(249,115,22,.1);color:var(--orange)"><i class="fas fa-link"></i></div>
+                <h3>Share the link</h3>
+                <p>Your site is live at <code style="font-size:11px;background:var(--surface);padding:2px 6px;border-radius:4px">hotspot.afric.site/s/yourname</code>. Send it to your client.</p>
+            </div>
+            <div class="step">
+                <div class="step-num">04</div>
+                <div class="step-icon" style="background:rgba(234,179,8,.1);color:var(--yellow)"><i class="fas fa-trash-alt"></i></div>
+                <h3>Delete when done</h3>
+                <p>Once you're paid, delete it. Or let it auto-expire. No cleanup, no billing surprises.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- WHO -->
+<section id="who">
+    <div class="section-center">
+        <div class="section-label">Who it's for</div>
+        <h2 class="section-title">Built for builders.</h2>
+        <p class="section-sub">Anyone who builds sites and needs to share work quickly without exposing their stack.</p>
+        <div class="who-grid">
+            <div class="who-card">
+                <i class="fas fa-code" style="color:var(--orange)"></i>
+                <h3>Freelance developers</h3>
+                <p>Show clients a live preview before payment. No GitHub, no "oh you're using free hosting" conversations.</p>
+            </div>
+            <div class="who-card">
+                <i class="fas fa-paint-brush" style="color:var(--yellow)"></i>
+                <h3>UI/UX designers</h3>
+                <p>Drop your HTML prototype, send the link. Client reviews it, approves it, you deliver. Done.</p>
+            </div>
+            <div class="who-card">
+                <i class="fas fa-flask" style="color:var(--orange)"></i>
+                <h3>Developers testing</h3>
+                <p>Quickly test a landing page or UI live on a real URL. No local tunnels, no ngrok setup.</p>
+            </div>
+            <div class="who-card">
+                <i class="fas fa-briefcase" style="color:var(--yellow)"></i>
+                <h3>Small agencies</h3>
+                <p>Run multiple client previews at once. Each project gets its own link. Clean separation.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- TIERS -->
+<section id="tiers">
+    <div class="section-center">
+        <div class="section-label">Plans</div>
+        <h2 class="section-title">Start free. Scale when ready.</h2>
+        <p class="section-sub">HotSpot is not long-term hosting. It's a hotspot — short, sharp, and purposeful.</p>
+        <div class="tier-grid">
+            <div class="tier-card featured">
+                <span class="tier-badge free">Free</span>
+                <div class="tier-name">Starter</div>
+                <div class="tier-price">Always free</div>
+                <ul class="tier-features">
+                    <li><i class="fas fa-check"></i> 3 active sites</li>
+                    <li><i class="fas fa-check"></i> Single HTML file</li>
+                    <li><i class="fas fa-check"></i> 24h / 48h / 72h duration</li>
+                    <li><i class="fas fa-check"></i> Auto-expiry</li>
+                    <li><i class="fas fa-check"></i> Cross-device access</li>
+                </ul>
+                <a href="app.html" class="tier-cta orange">Get Started</a>
+            </div>
+            <div class="tier-card">
+                <span class="tier-badge pro">Pro — Coming Soon</span>
+                <div class="tier-name">Pro</div>
+                <div class="tier-price">Paid plan</div>
+                <ul class="tier-features">
+                    <li><i class="fas fa-check"></i> 5 active sites</li>
+                    <li><i class="fas fa-check"></i> Multi-page (ZIP upload)</li>
+                    <li><i class="fas fa-check"></i> Up to 1 week duration</li>
+                    <li><i class="fas fa-check"></i> Everything in Free</li>
+                </ul>
+                <span class="tier-cta outline" style="cursor:default;opacity:.6">Coming Soon</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- FEEDBACK -->
+<section id="feedback">
+    <div class="section-center">
+        <div class="section-label">Feedback</div>
+        <h2 class="section-title">Tell us what you think.</h2>
+        <p class="section-sub">HotSpot is an MVP. Your feedback is what shapes the next version.</p>
+        <div class="feedback-wrap">
+            <h3>Share your experience</h3>
+            <div class="star-row" id="starRow">
+                <span class="star" data-v="1">★</span>
+                <span class="star" data-v="2">★</span>
+                <span class="star" data-v="3">★</span>
+                <span class="star" data-v="4">★</span>
+                <span class="star" data-v="5">★</span>
+            </div>
+            <div class="field">
+                <label>Your Name <span style="font-weight:400;text-transform:none">(optional)</span></label>
+                <input type="text" id="fbName" placeholder="e.g. Emmanuel">
+            </div>
+            <div class="field">
+                <label>Your Feedback</label>
+                <textarea id="fbMessage" placeholder="What works? What's missing? Any bugs?"></textarea>
+            </div>
+            <button class="send-btn" id="sendBtn"><i class="fas fa-envelope"></i> Send Feedback</button>
+        </div>
+    </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+    <div class="footer-logo">
+        <div class="footer-logo-icon">
+            <svg viewBox="0 0 36 36" fill="none"><rect x="1" y="11" width="16" height="14" rx="7" fill="none" stroke="#f97316" stroke-width="2.5"/><rect x="19" y="11" width="16" height="14" rx="7" fill="none" stroke="#eab308" stroke-width="2.5"/><rect x="16" y="13" width="4" height="10" fill="#111"/><circle cx="18" cy="18" r="2" fill="#f97316"/></svg>
+        </div>
+        <span class="footer-logo-text">HotSpot</span>
+    </div>
+    <div class="footer-right">
+        by <a href="https://emltechstudio.site" target="_blank" rel="noopener">EML Tech Studio</a><br>
+        &copy; 2026 EML Tech Studio &middot; emltechstudio@gmail.com
+    </div>
+</footer>
+
+<script>
+// Theme
+const tt = document.getElementById('themeToggle');
+const ti = document.getElementById('themeIcon');
+function applyTheme(dark) {
+    dark ? document.body.setAttribute('data-theme','dark') : document.body.removeAttribute('data-theme');
+    ti.className = dark ? 'fas fa-sun' : 'fas fa-moon';
+    localStorage.setItem('hs-site-theme', dark ? 'dark' : 'light');
+}
+const saved = localStorage.getItem('hs-site-theme');
+applyTheme(saved ? saved==='dark' : window.matchMedia('(prefers-color-scheme:dark)').matches);
+tt.addEventListener('click', () => applyTheme(document.body.getAttribute('data-theme') !== 'dark'));
+
+// Stars
+let rating = 0;
+document.querySelectorAll('.star').forEach(s => {
+    s.addEventListener('mouseover', () => document.querySelectorAll('.star').forEach(st => st.classList.toggle('lit', +st.dataset.v <= +s.dataset.v)));
+    s.addEventListener('mouseout', () => document.querySelectorAll('.star').forEach(st => st.classList.toggle('lit', +st.dataset.v <= rating)));
+    s.addEventListener('click', () => { rating = +s.dataset.v; document.querySelectorAll('.star').forEach(st => st.classList.toggle('lit', +st.dataset.v <= rating)); });
+});
+
+// Feedback mailto
+document.getElementById('sendBtn').addEventListener('click', () => {
+    const msg = document.getElementById('fbMessage').value.trim();
+    const name = document.getElementById('fbName').value.trim();
+    if (!msg) { document.getElementById('fbMessage').style.borderColor='#ef4444'; setTimeout(()=>document.getElementById('fbMessage').style.borderColor='',1800); return; }
+    const stars = rating > 0 ? '★'.repeat(rating)+'☆'.repeat(5-rating)+` (${rating}/5)` : 'No rating';
+    const subject = encodeURIComponent('HotSpot — Feedback');
+    const body = encodeURIComponent(`Rating: ${stars}\nFrom: ${name||'Anonymous'}\n\nFeedback:\n${msg}\n\n---\nSent from hotspot.afric.site`);
+    window.location.href = `mailto:emltechstudio@gmail.com?subject=${subject}&body=${body}`;
+});
+</script>
+</body>
+</html>
