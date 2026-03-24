@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes">
+  <title>◉ STRATA · progression tic‑tac‑toe</title>
+  <style>
+    /* --- minimal, chess‑inspired foundation --- */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: #1a1e24;
+      font-family: 'Inter', 'Segoe UI', Roboto, system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #e8eef2;
+      padding: 12px;
+    }
+
+    .game-container {
+      max-width: 680px;
+      width: 100%;
+      background: #232a33;
+      border-radius: 32px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.05);
+      padding: 24px 20px;
+      backdrop-filter: blur(2px);
+      border: 1px solid #3f4a54;
+    }
+
+    /* screens */
+    .screen {
+      display: none;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+    .screen.active {
+      display: block;
+      opacity: 1;
+    }
+
+    /* --- start screen --- */
+    .start-card {
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+    .input-field {
+      background: #13181f;
+      border: 1px solid #38434f;
+      border-radius: 40px;
+      padding: 16px 24px;
+      font-size: 1.2rem;
+      color: white;
+      width: 100%;
+      outline: none;
+      transition: 0.15s;
+    }
+    .input-field:focus {
+      border-color: #9aaec2;
+      box-shadow: 0 0 0 2px #30475a;
+    }
+    .mode-toggles {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+    }
+    .mode-btn {
+      flex: 1;
+      background: #1f2a33;
+      border: 1.5px solid #3f4e5c;
+      border-radius: 60px;
+      padding: 14px 10px;
+      font-size: 1.2rem;
+      font-weight: 500;
+      color: #b7c7d7;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .mode-btn.active {
+      background: #3d4f5e;
+      border-color: #aac7e0;
+      color: white;
+      box-shadow: 0 0 8px #3c6e8c;
+    }
+    .play-btn {
+      background: #3b4f5e;
+      border: none;
+      border-radius: 60px;
+      padding: 18px;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: white;
+      cursor: pointer;
+      transition: 0.15s;
+      box-shadow: 0 6px 0 #1f2a30;
+      margin-top: 12px;
+    }
+    .play-btn:active {
+      transform: translateY(4px);
+      box-shadow: 0 2px 0 #1f2a30;
+    }
+
+    /* --- map screen --- */
+    .map-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    .map-username {
+      font-size: 1.1rem;
+      background: #1c242c;
+      padding: 8px 18px;
+      border-radius: 40px;
+      border: 1px solid #384b58;
+    }
+    .map-levels {
+      background: #161e26;
+      border-radius: 36px;
+      padding: 24px 12px;
+    }
+    .svg-map {
+      width: 100%;
+      height: auto;
+      min-height: 280px;
+      background: transparent;
+    }
+    .map-node {
+      cursor: pointer;
+      transition: filter 0.2s;
+    }
+    .map-node.locked {
+      filter: grayscale(0.8) brightness(0.45);
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+    .map-node text {
+      fill: #f0f6fc;
+      font-size: 10px;
+      font-weight: 600;
+      text-anchor: middle;
+      dominant-baseline: central;
+      pointer-events: none;
+    }
+    .map-node.locked text {
+      fill: #7a8b9b;
+    }
+    .path {
+      stroke: #4d6272;
+      stroke-width: 2.5;
+      stroke-dasharray: 5 3;
+    }
+    .win-dots {
+      font-size: 8px;
+      fill: #d4e2f0;
+    }
+
+    /* --- game screen --- */
+    .game-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .level-badge {
+      background: #1c262f;
+      padding: 8px 18px;
+      border-radius: 30px;
+      border-left: 4px solid #7a9fbf;
+      font-weight: 500;
+    }
+    .win-counter {
+      background: #1a2e3a;
+      padding: 8px 18px;
+      border-radius: 30px;
+      font-size: 1.1rem;
+      letter-spacing: 1px;
+    }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      background: #1f2933;
+      padding: 20px;
+      border-radius: 48px;
+      border: 1px solid #3b4d5c;
+      box-shadow: inset 0 0 0 1px #2c3b46;
+      margin: 20px 0;
+    }
+    .cell {
+      aspect-ratio: 1 / 1;
+      background: #11181f;
+      border-radius: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 8px 0 #0b1115, 0 4px 12px rgba(0,0,0,0.5);
+      transition: 0.05s linear;
+    }
+    .cell:active {
+      transform: translateY(5px);
+      box-shadow: 0 3px 0 #0b1115;
+    }
+    .cell svg {
+      width: 60%;
+      height: 60%;
+      filter: drop-shadow(0 3px 2px black);
+    }
+    .x-svg {
+      stroke: #cfddee;
+      stroke-width: 8;
+      stroke-linecap=round;
+    }
+    .o-svg {
+      stroke: #bed5ec;
+      stroke-width: 8;
+      fill: none;
+    }
+    .feedback {
+      text-align: center;
+      font-size: 1.4rem;
+      font-weight: 400;
+      min-height: 3rem;
+      color: #d2e5ff;
+      letter-spacing: 1px;
+    }
+    .map-btn {
+      background: transparent;
+      border: 1.5px solid #4f677b;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 40px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 12px;
+      transition: 0.15s;
+    }
+    .map-btn:hover {
+      background: #2d3f4e;
+    }
+
+    /* themes for levels – minimal background shift */
+    .theme-meadow { background: #274236; }
+    .theme-desert { background: #6b4f32; }
+    .theme-forest { background: #1d4a3a; }
+    .theme-ice { background: #345b6b; }
+    .theme-metal { background: #414d5c; }
+    .theme-volcano { background: #5a3c36; }
+    .board.theme-mountain { background: #3e4f50; }
+    /* dynamic board theme via js */
+
+    @media (max-width: 480px) {
+      .game-container { padding: 16px; }
+      .board { gap: 8px; padding: 12px; }
+      .cell { border-radius: 18px; }
+    }
+  </style>
+</head>
+<body>
+<div class="game-container" id="gameContainer">
+  <!-- START SCREEN -->
+  <div id="startScreen" class="screen active">
+    <div class="start-card">
+      <input type="text" id="usernameInput" class="input-field" placeholder="ENTER CALLSIGN" maxlength="16" autocomplete="off">
+      <div class="mode-toggles">
+        <button id="modeSingle" class="mode-btn active">SINGLE</button>
+        <button id="modeMulti" class="mode-btn">DUO</button>
+      </div>
+      <button id="startGameBtn" class="play-btn">▶ ENTER THE MAP</button>
+    </div>
+  </div>
+
+  <!-- MAP SCREEN -->
+  <div id="mapScreen" class="screen">
+    <div class="map-header">
+      <span class="map-username" id="mapUsername">———</span>
+      <span style="opacity:0.7;">✧ 20 outposts</span>
+    </div>
+    <div class="map-levels">
+      <svg id="levelMapSVG" class="svg-map" viewBox="0 0 500 320" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div id="gameScreen" class="screen">
+    <div class="game-header">
+      <span class="level-badge" id="levelName">LOADING...</span>
+      <span class="win-counter" id="winDisplay">🏆 0/2</span>
+    </div>
+    <div id="boardContainer" class="board"></div>
+    <div class="feedback" id="gameFeedback">· make your move ·</div>
+    <button id="backToMapBtn" class="map-btn">← CAMPAIGN MAP</button>
+  </div>
+</div>
+
+<script>
+  (function() {
+    // ---------- STORAGE ----------
+    const STORAGE_KEY = 'strata_ttt_progression';
+
+    // default state
+    let appState = {
+      username: '',
+      mode: 'single',      // 'single' or 'multi'
+      wins: Array(20).fill(0),     // wins per level (index 0 = level1)
+    };
+
+    // load from localStorage
+    function loadState() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          appState.username = parsed.username || '';
+          appState.mode = parsed.mode || 'single';
+          appState.wins = parsed.wins && Array.isArray(parsed.wins) ? parsed.wins : Array(20).fill(0);
+        } else {
+          // ensure defaults
+          appState.wins = Array(20).fill(0);
+        }
+      } catch (e) { console.warn('storage read failed'); }
+    }
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        username: appState.username,
+        mode: appState.mode,
+        wins: appState.wins,
+      }));
+    }
+
+    // ---------- GLOBALS ----------
+    let currentLevel = 0;            // 0-based (0 = level1)
+    let board = Array(9).fill(null);
+    let currentPlayer = 'x';         // x always starts (user)
+    let gameOver = false;
+    let winnerSymbol = null;
+    let feedbackTimeout = null;
+
+    // themes per level (unique name + visual class)
+    const levelThemes = [
+      { name: 'MEADOW GATE', bg: 'theme-meadow' },        // 1
+      { name: 'DESERT SPIRE', bg: 'theme-desert' },       // 2
+      { name: 'FOREST ROOT', bg: 'theme-forest' },        // 3
+      { name: 'ICE PEAK', bg: 'theme-ice' },              // 4
+      { name: 'METAL FORGE', bg: 'theme-metal' },         // 5
+      { name: 'VOLCANIC CRAG', bg: 'theme-volcano' },     // 6
+      { name: 'STONEHOLD', bg: 'theme-mountain' },        // 7
+      { name: 'DUNE SEA', bg: 'theme-desert' },           // 8
+      { name: 'SILVER PINE', bg: 'theme-forest' },        // 9
+      { name: 'GLACIAL TOMB', bg: 'theme-ice' },          // 10
+      { name: 'BRASS KEEP', bg: 'theme-metal' },          // 11
+      { name: 'ASH PLAIN', bg: 'theme-volcano' },         // 12
+      { name: 'CRYSTAL CAVE', bg: 'theme-ice' },          // 13
+      { name: 'SUNSTONE', bg: 'theme-desert' },           // 14
+      { name: 'MAHOGANY', bg: 'theme-forest' },           // 15
+      { name: 'FROST HOLD', bg: 'theme-ice' },            // 16
+      { name: 'ANVIL ROOST', bg: 'theme-metal' },         // 17
+      { name: 'MAGMA POOL', bg: 'theme-volcano' },        // 18
+      { name: 'OBSIDIAN', bg: 'theme-metal' },            // 19
+      { name: 'AETHER NEXUS', bg: 'theme-mountain' }      // 20
+    ];
+
+    // ---------- AI : rule‑based with depth & personality via level -----
+    function aiMove(level, boardArr, aiSymbol = 'o') {
+      const humanSymbol = 'x';
+      // available indices
+      const empty = boardArr.reduce((acc, cell, idx) => cell === null ? [...acc, idx] : acc, []);
+
+      // 1) immediate win
+      for (let i of empty) {
+        const copy = [...boardArr];
+        copy[i] = aiSymbol;
+        if (checkWinner(copy) === aiSymbol) return i;
+      }
+
+      // 2) block opponent win (if level >= 3)
+      if (level >= 3) {
+        for (let i of empty) {
+          const copy = [...boardArr];
+          copy[i] = humanSymbol;
+          if (checkWinner(copy) === humanSymbol) return i;
+        }
+      }
+
+      // 3) center preference (level >= 2)
+      if (level >= 2 && empty.includes(4)) return 4;
+
+      // 4) corner preference (level >= 4) — choose random among corners if available
+      if (level >= 4) {
+        const corners = [0,2,6,8].filter(i => empty.includes(i));
+        if (corners.length > 0) return corners[Math.floor(Math.random() * corners.length)];
+      }
+
+      // 5) fork creation (level >= 10) – naive: if any move creates two lines
+      if (level >= 10) {
+        for (let i of empty) {
+          const copy = [...boardArr];
+          copy[i] = aiSymbol;
+          let threatLines = 0;
+          const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+          for (let line of lines) {
+            const values = line.map(idx => copy[idx]);
+            if (values.filter(v => v === aiSymbol).length === 2 && values.includes(null)) threatLines++;
+          }
+          if (threatLines >= 2) return i;
+        }
+      }
+
+      // 6) block opponent fork (level >= 12) – crude: if opponent has fork threat
+      if (level >= 12) {
+        for (let i of empty) {
+          const copy = [...boardArr];
+          copy[i] = humanSymbol;
+          let oppThreat = 0;
+          const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+          for (let line of lines) {
+            const values = line.map(idx => copy[idx]);
+            if (values.filter(v => v === humanSymbol).length === 2 && values.includes(null)) oppThreat++;
+          }
+          if (oppThreat >= 2) return i;
+        }
+      }
+
+      // 7) smarter side / default: prefer edges based on level, else random
+      if (level >= 6) {
+        const sides = [1,3,5,7].filter(i => empty.includes(i));
+        if (sides.length > 0 && Math.random() < 0.4 + level*0.02) { // increasing side pick
+          return sides[Math.floor(Math.random() * sides.length)];
+        }
+      }
+
+      // final: random move
+      return empty[Math.floor(Math.random() * empty.length)];
+    }
+
+    // winner check
+    function checkWinner(boardArr) {
+      const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+      for (let line of lines) {
+        const [a,b,c] = line;
+        if (boardArr[a] && boardArr[a] === boardArr[b] && boardArr[a] === boardArr[c]) return boardArr[a];
+      }
+      return null;
+    }
+
+    // ---------- RENDER BOARD ----------
+    function renderGameBoard() {
+      const boardDiv = document.getElementById('boardContainer');
+      boardDiv.innerHTML = '';
+      for (let i=0; i<9; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.dataset.index = i;
+        if (board[i]) {
+          const svgNS = "http://www.w3.org/2000/svg";
+          const svg = document.createElementNS(svgNS, "svg");
+          svg.setAttribute("viewBox", "0 0 100 100");
+          if (board[i] === 'x') {
+            const line1 = document.createElementNS(svgNS, "line");
+            line1.setAttribute("x1", "20"); line1.setAttribute("y1", "20");
+            line1.setAttribute("x2", "80"); line1.setAttribute("y2", "80");
+            line1.setAttribute("stroke", "#eaeef5"); line1.setAttribute("stroke-width", "12");
+            line1.setAttribute("stroke-linecap", "round");
+            const line2 = document.createElementNS(svgNS, "line");
+            line2.setAttribute("x1", "80"); line2.setAttribute("y1", "20");
+            line2.setAttribute("x2", "20"); line2.setAttribute("y2", "80");
+            line2.setAttribute("stroke", "#eaeef5"); line2.setAttribute("stroke-width", "12");
+            line2.setAttribute("stroke-linecap", "round");
+            svg.appendChild(line1); svg.appendChild(line2);
+          } else {
+            const circle = document.createElementNS(svgNS, "circle");
+            circle.setAttribute("cx", "50"); circle.setAttribute("cy", "50"); circle.setAttribute("r", "32");
+            circle.setAttribute("stroke", "#d2e2f5"); circle.setAttribute("stroke-width", "10");
+            circle.setAttribute("fill", "none");
+            svg.appendChild(circle);
+          }
+          cell.appendChild(svg);
+        } else {
+          // empty: invisible marker for spacing
+        }
+        boardDiv.appendChild(cell);
+      }
+
+      // apply theme class
+      boardDiv.className = `board ${levelThemes[currentLevel].bg}`;
+    }
+
+    // ---------- GAME LOGIC after move ----------
+    function afterMove() {
+      const winner = checkWinner(board);
+      const isDraw = !winner && board.every(cell => cell !== null);
+
+      if (winner || isDraw) {
+        gameOver = true;
+        if (winner === 'x') {
+          // user wins
+          document.getElementById('gameFeedback').innerText = '✦ VICTORY ✦';
+          // increase win count for current level
+          appState.wins[currentLevel] = Math.min(2, appState.wins[currentLevel] + 1);
+          saveState();
+        } else if (winner === 'o') {
+          document.getElementById('gameFeedback').innerText = '⛔ DEFEAT';
+        } else {
+          document.getElementById('gameFeedback').innerText = '— STALEMATE —';
+        }
+        updateWinCounter();
+        return;
+      }
+
+      // switch player
+      currentPlayer = currentPlayer === 'x' ? 'o' : 'x';
+      document.getElementById('gameFeedback').innerText = currentPlayer === 'x' ? '• your move •' : '• AI thinking •';
+
+      // AI move if single player and currentPlayer is o and not gameOver
+      if (appState.mode === 'single' && currentPlayer === 'o' && !gameOver) {
+        setTimeout(() => {
+          if (gameOver || currentPlayer !== 'o') return; // safety
+          const moveIndex = aiMove(currentLevel + 1, board, 'o'); // level 1-20
+          if (moveIndex !== undefined && board[moveIndex] === null) {
+            board[moveIndex] = 'o';
+            renderGameBoard();
+            afterMove();
+          }
+        }, 180); // slight pause
+      }
+    }
+
+    // handle cell click
+    function onCellClick(e) {
+      const cell = e.target.closest('.cell');
+      if (!cell) return;
+      const index = parseInt(cell.dataset.index);
+      if (gameOver) return;
+      if (board[index] !== null) return;
+      if (appState.mode === 'multi' && currentPlayer === 'o' && currentPlayer !== 'x') {
+        // in duo, o is second human, always allowed
+      } else if (currentPlayer !== 'x') return; // not your turn in single
+
+      board[index] = 'x';
+      renderGameBoard();
+      afterMove();
+    }
+
+    // update win text
+    function updateWinCounter() {
+      document.getElementById('winDisplay').innerText = `🏆 ${appState.wins[currentLevel]}/2`;
+    }
+
+    // start game with given level
+    function startLevel(levelIdx) {
+      currentLevel = levelIdx;
+      board = Array(9).fill(null);
+      currentPlayer = 'x';
+      gameOver = false;
+      winnerSymbol = null;
+      document.getElementById('levelName').innerText = levelThemes[levelIdx].name;
+      updateWinCounter();
+      document.getElementById('gameFeedback').innerText = '• your move •';
+      renderGameBoard();
+      showScreen('gameScreen');
+    }
+
+    // ---------- MAP RENDER ----------
+    function renderMap() {
+      const svg = document.getElementById('levelMapSVG');
+      svg.innerHTML = '';
+      const w = 500, h = 320;
+      const cols = 5, rows = 4;
+      const marginX = 70, marginY = 50;
+      const stepX = (w - 2*marginX) / (cols-1);
+      const stepY = (h - 2*marginY) / (rows-1);
+
+      const positions = [];
+      for (let r=0; r<rows; r++) {
+        for (let c=0; c<cols; c++) {
+          const idx = r*cols + c;
+          if (idx >= 20) break;
+          const x = marginX + c * stepX;
+          const y = marginY + r * stepY;
+          positions.push({x, y, idx});
+        }
+      }
+
+      // draw paths (connections)
+      for (let i=0; i<positions.length-1; i++) {
+        const p1 = positions[i];
+        const p2 = positions[i+1];
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", p1.x); line.setAttribute("y1", p1.y);
+        line.setAttribute("x2", p2.x); line.setAttribute("y2", p2.y);
+        line.setAttribute("class", "path");
+        svg.appendChild(line);
+      }
+
+      // draw nodes
+      positions.forEach(({x, y, idx}) => {
+        const levelNumber = idx+1;
+        const winsNeeded = appState.wins[idx] || 0;
+        const unlocked = idx === 0 || appState.wins[idx-1] >= 2; // level 1 always unlocked, else prev level >=2 wins
+
+        const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        group.setAttribute("class", `map-node ${unlocked ? '' : 'locked'}`);
+        if (unlocked) {
+          group.addEventListener('click', () => startLevel(idx));
+          group.style.cursor = 'pointer';
+        }
+
+        // outer ring (themed stroke)
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("cx", x); circle.setAttribute("cy", y); circle.setAttribute("r", "19");
+        circle.setAttribute("fill", unlocked ? "#273845" : "#26323f");
+        circle.setAttribute("stroke", unlocked ? "#b7d9f0" : "#506070");
+        circle.setAttribute("stroke-width", "3");
+        group.appendChild(circle);
+
+        // level number
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", x); text.setAttribute("y", y-2);
+        text.setAttribute("text-anchor", "middle");
+        text.setAttribute("fill", "white");
+        text.setAttribute("font-size", "12");
+        text.setAttribute("font-weight", "bold");
+        text.textContent = levelNumber;
+        group.appendChild(text);
+
+        // win dots (tiny indicators)
+        const dotY = y+13;
+        for (let w=0; w<2; w++) {
+          const dotX = x - 6 + w*12;
+          const dotCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          dotCircle.setAttribute("cx", dotX); dotCircle.setAttribute("cy", dotY); dotCircle.setAttribute("r", "4");
+          dotCircle.setAttribute("fill", winsNeeded > w ? "#d4edff" : "#3d525e");
+          dotCircle.setAttribute("stroke", "#141c24"); dotCircle.setAttribute("stroke-width", "1");
+          group.appendChild(dotCircle);
+        }
+
+        svg.appendChild(group);
+      });
+
+      document.getElementById('mapUsername').innerText = appState.username.toUpperCase() || 'STRANGER';
+    }
+
+    // ---------- UI SCREENS ----------
+    function showScreen(screenId) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(screenId).classList.add('active');
+      if (screenId === 'mapScreen') {
+        renderMap();
+      }
+    }
+
+    // ---------- INIT & EVENT LISTENERS ----------
+    document.addEventListener('DOMContentLoaded', () => {
+      loadState();
+
+      // start screen prefill
+      document.getElementById('usernameInput').value = appState.username || '';
+      if (appState.mode === 'single') {
+        document.getElementById('modeSingle').classList.add('active');
+        document.getElementById('modeMulti').classList.remove('active');
+      } else {
+        document.getElementById('modeMulti').classList.add('active');
+        document.getElementById('modeSingle').classList.remove('active');
+      }
+
+      // mode toggle
+      document.getElementById('modeSingle').addEventListener('click', () => {
+        appState.mode = 'single';
+        document.getElementById('modeSingle').classList.add('active');
+        document.getElementById('modeMulti').classList.remove('active');
+        saveState();
+      });
+      document.getElementById('modeMulti').addEventListener('click', () => {
+        appState.mode = 'multi';
+        document.getElementById('modeMulti').classList.add('active');
+        document.getElementById('modeSingle').classList.remove('active');
+        saveState();
+      });
+
+      // start game btn
+      document.getElementById('startGameBtn').addEventListener('click', () => {
+        const name = document.getElementById('usernameInput').value.trim();
+        if (name) appState.username = name;
+        else appState.username = 'TACTICIAN';
+        saveState();
+        showScreen('mapScreen');
+      });
+
+      // back to map from game
+      document.getElementById('backToMapBtn').addEventListener('click', () => {
+        showScreen('mapScreen');
+      });
+
+      // board clicks
+      document.getElementById('boardContainer').addEventListener('click', onCellClick);
+
+      // first map load later
+    });
+
+    // also when map becomes active via any path, we re-render (called in showScreen)
+    // ensure map shows after start
+    // preload any level from map nodes
+  })();
+</script>
+</body>
+</html>
