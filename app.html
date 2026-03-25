@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HotSpot</title>
+    <meta name="theme-color" content="#f97316">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        :root {
+            --orange: #f97316;
+            --yellow: #eab308;
+            --red: #ef4444;
+            --green: #22c55e;
+            --bg: #ffffff;
+            --surface: #f9fafb;
+            --border: #e5e7eb;
+            --text: #111827;
+            --muted: #6b7280;
+            --shadow: 0 1px 4px rgba(0,0,0,.07);
+            --shadow-lg: 0 4px 20px rgba(0,0,0,.1);
+            --radius: 14px;
+        }
+        [data-theme="dark"] {
+            --bg: #0f0f0f;
+            --surface: #1a1a1a;
+            --border: #2a2a2a;
+            --text: #f3f4f6;
+            --muted: #9ca3af;
+            --shadow: 0 1px 4px rgba(0,0,0,.4);
+            --shadow-lg: 0 4px 20px rgba(0,0,0,.5);
+        }
+        * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+        body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; display:flex; flex-direction:column; transition:background .3s,color .3s; overflow-x:hidden; }
+        @media(display-mode:standalone){ .app-header{ padding-top:max(16px,env(safe-area-inset-top)); } }
+
+        /* ── Spinner ── */
+        .spin { width:18px; height:18px; border:2px solid rgba(255,255,255,.3); border-top-color:white; border-radius:50%; animation:spin 1s linear infinite; display:inline-block; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        .spin.dark { border-color:rgba(0,0,0,.15); border-top-color:var(--orange); }
+
+        /* ── Toast ── */
+        .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); padding:11px 20px; border-radius:10px; font-size:13px; font-weight:500; z-index:9999; white-space:nowrap; pointer-events:none; box-shadow:var(--shadow-lg); animation:toastIn .25s ease; max-width:90vw; overflow:hidden; text-overflow:ellipsis; }
+        .toast.info  { background:var(--text); color:var(--bg); }
+        .toast.ok    { background:#16a34a; color:white; }
+        .toast.error { background:var(--red); color:white; }
+        @keyframes toastIn { from{opacity:0;transform:translateX(-50%) translateY(10px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+
+        /* ── Overlay backdrop ── */
+        .backdrop { position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:400; display:none; }
+        .backdrop.open { display:block; animation:fadeIn .2s ease; }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+        /* ══════════════════════════════════════
+           AUTH SCREEN
+        ══════════════════════════════════════ */
+        .auth-wrap { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:32px 20px; min-height:100vh; }
+        .auth-brand { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+        .brand-icon { width:48px; height:48px; background:#111; border-radius:13px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 16px rgba(249,115,22,.3); }
+        .brand-icon svg { width:32px; height:32px; }
+        .brand-name { font-size:28px; font-weight:800; letter-spacing:-.5px; background:linear-gradient(90deg,var(--orange),var(--yellow)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+        .auth-tagline { font-size:13px; color:var(--muted); margin-bottom:28px; }
+        .auth-card { width:100%; max-width:360px; background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:26px; }
+        .auth-tabs { display:flex; background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:3px; margin-bottom:22px; }
+        .auth-tab { flex:1; padding:8px; text-align:center; font-size:13px; font-weight:600; color:var(--muted); cursor:pointer; border-radius:8px; transition:all .2s; user-select:none; }
+        .auth-tab.active { background:var(--orange); color:white; }
+        .auth-form { display:none; }
+        .auth-form.show { display:block; }
+        .err-box { background:rgba(239,68,68,.08); border:1px solid rgba(239,68,68,.2); border-radius:8px; padding:9px 12px; font-size:13px; color:var(--red); margin-bottom:14px; display:none; }
+        .field { margin-bottom:13px; }
+        .field label { display:block; font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; margin-bottom:5px; }
+        .field input, .field select { width:100%; background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:11px 13px; font-size:14px; color:var(--text); outline:none; font-family:inherit; transition:border-color .2s; }
+        .field input:focus, .field select:focus { border-color:var(--orange); }
+        .field select option { background:var(--surface); }
+        .auth-btn { width:100%; padding:12px; background:var(--orange); color:white; border:none; border-radius:10px; font-size:15px; font-weight:700; cursor:pointer; font-family:inherit; transition:opacity .2s; display:flex; align-items:center; justify-content:center; gap:8px; margin-top:2px; }
+        .auth-btn:hover { opacity:.88; }
+        .auth-btn:disabled { opacity:.45; cursor:not-allowed; }
+        .auth-switch { text-align:center; margin-top:12px; font-size:13px; color:var(--muted); }
+        .auth-switch a { color:var(--orange); cursor:pointer; font-weight:500; }
+
+        /* ══════════════════════════════════════
+           APP SHELL
+        ══════════════════════════════════════ */
+        .app-shell { display:none; flex-direction:column; min-height:100vh; }
+        .app-shell.show { display:flex; }
+
+        /* Header */
+        .app-header { padding:14px 18px 12px; border-bottom:1px solid var(--border); background:var(--bg); display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; transition:background .3s,border-color .3s; }
+        .header-brand { display:flex; align-items:center; gap:8px; }
+        .header-brand-icon { width:28px; height:28px; background:#111; border-radius:7px; display:flex; align-items:center; justify-content:center; }
+        .header-brand-icon svg { width:19px; height:19px; }
+        .header-brand-name { font-size:17px; font-weight:700; background:linear-gradient(90deg,var(--orange),var(--yellow)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+        .header-right { display:flex; align-items:center; gap:8px; }
+        .hdr-btn { width:34px; height:34px; border-radius:50%; border:1px solid var(--border); background:var(--surface); color:var(--muted); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:13px; transition:all .2s; }
+        .hdr-btn:hover { color:var(--text); border-color:var(--orange); }
+        .back-btn { display:none; align-items:center; gap:6px; font-size:14px; font-weight:500; color:var(--muted); background:none; border:none; cursor:pointer; padding:4px 8px; border-radius:8px; transition:color .2s; }
+        .back-btn:hover { color:var(--text); }
+        .back-btn.show { display:flex; }
+
+        /* ── Dashboard ── */
+        .dashboard { flex:1; padding:20px 18px 100px; }
+        .dash-greeting { font-size:18px; font-weight:700; margin-bottom:3px; }
+        .dash-sub { font-size:13px; color:var(--muted); margin-bottom:22px; }
+
+        .projects-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:12px; }
+
+        /* Project card */
+        .proj-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px; cursor:pointer; transition:border-color .2s, transform .2s, box-shadow .2s; position:relative; overflow:hidden; }
+        .proj-card:hover { border-color:var(--orange); transform:translateY(-2px); box-shadow:var(--shadow-lg); }
+        .proj-card.expiring { border-color:rgba(239,68,68,.4); background:rgba(239,68,68,.03); }
+        .proj-card.expiring:hover { border-color:var(--red); }
+
+        .proj-status { display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:700; padding:2px 8px; border-radius:20px; margin-bottom:10px; }
+        .proj-status.live { background:rgba(34,197,94,.1); color:#16a34a; }
+        .proj-status.live .dot { width:5px; height:5px; background:#16a34a; border-radius:50%; animation:blink 2s infinite; }
+        .proj-status.expiring-soon { background:rgba(239,68,68,.1); color:var(--red); }
+        .proj-status.expiring-soon .dot { width:5px; height:5px; background:var(--red); border-radius:50%; animation:blink .8s infinite; }
+        .proj-status.empty { background:rgba(107,114,128,.1); color:var(--muted); }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+        .proj-name { font-size:15px; font-weight:700; margin-bottom:4px; word-break:break-all; }
+        .proj-timer { font-size:11px; color:var(--muted); display:flex; align-items:center; gap:4px; margin-bottom:8px; }
+        .proj-timer i { color:var(--yellow); font-size:10px; }
+        .proj-timer.urgent { color:var(--red); }
+        .proj-timer.urgent i { color:var(--red); }
+        .proj-files { font-size:11px; color:var(--muted); }
+
+        /* Extend banner inside card */
+        .extend-banner { margin-top:10px; padding:7px 10px; background:rgba(249,115,22,.08); border:1px solid rgba(249,115,22,.2); border-radius:8px; font-size:11px; color:var(--orange); font-weight:600; display:flex; align-items:center; justify-content:space-between; gap:6px; }
+        .extend-banner button { background:var(--orange); color:white; border:none; border-radius:6px; padding:3px 9px; font-size:10px; font-weight:700; cursor:pointer; font-family:inherit; transition:opacity .2s; flex-shrink:0; }
+        .extend-banner button:hover { opacity:.85; }
+
+        /* Add project card */
+        .proj-card.add { border-style:dashed; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:140px; gap:8px; }
+        .proj-card.add:hover .add-icon { color:var(--orange); }
+        .add-icon { font-size:26px; color:var(--border); transition:color .2s; }
+        .add-label { font-size:13px; color:var(--muted); font-weight:500; }
+
+        /* ── Project detail ── */
+        .proj-detail { flex:1; padding:20px 18px 80px; display:none; }
+        .proj-detail.show { display:block; }
+
+        .detail-header { margin-bottom:20px; }
+        .detail-name { font-size:22px; font-weight:800; margin-bottom:4px; }
+        .detail-url { font-size:12px; color:var(--blue, var(--orange)); word-break:break-all; display:flex; align-items:center; gap:6px; }
+        .detail-url a { color:var(--orange); }
+        .copy-url-btn { background:none; border:none; color:var(--muted); cursor:pointer; font-size:13px; transition:color .2s; padding:2px; }
+        .copy-url-btn:hover { color:var(--orange); }
+
+        /* Detail timer */
+        .detail-timer-wrap { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px 18px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; }
+        .dtimer-left { display:flex; align-items:center; gap:8px; }
+        .dtimer-left i { color:var(--yellow); font-size:16px; }
+        .dtimer-label { font-size:12px; color:var(--muted); }
+        .dtimer-val { font-size:18px; font-weight:700; font-variant-numeric:tabular-nums; }
+        .dtimer-val.urgent { color:var(--red); }
+
+        /* Upgrade section */
+        .upgrade-card { background:linear-gradient(135deg,rgba(249,115,22,.08),rgba(234,179,8,.08)); border:1px solid rgba(249,115,22,.2); border-radius:var(--radius); padding:16px 18px; margin-bottom:16px; }
+        .upgrade-card h4 { font-size:14px; font-weight:700; margin-bottom:4px; }
+        .upgrade-card p { font-size:12px; color:var(--muted); margin-bottom:12px; line-height:1.5; }
+        .upgrade-tiers { display:flex; gap:8px; }
+        .upgrade-tier { flex:1; padding:9px 10px; border-radius:9px; text-align:center; cursor:pointer; transition:opacity .2s; border:none; font-family:inherit; font-weight:600; font-size:12px; }
+        .upgrade-tier.pro { background:var(--orange); color:white; }
+        .upgrade-tier.premium { background:var(--yellow); color:#111; }
+        .upgrade-tier:hover { opacity:.85; }
+
+        /* Files section */
+        .files-section { margin-bottom:16px; }
+        .files-label { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between; }
+        .files-label span { color:var(--text); font-weight:500; font-size:12px; text-transform:none; letter-spacing:0; }
+        .file-row { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 14px; display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+        .file-row i { color:var(--orange); font-size:16px; flex-shrink:0; }
+        .file-row-name { flex:1; font-size:14px; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .file-row-size { font-size:11px; color:var(--muted); flex-shrink:0; }
+        .no-files { text-align:center; padding:28px; color:var(--muted); font-size:13px; background:var(--surface); border:1px dashed var(--border); border-radius:var(--radius); }
+        .no-files i { font-size:24px; opacity:.3; display:block; margin-bottom:8px; }
+
+        /* Upload area */
+        .upload-area { border:2px dashed var(--border); border-radius:var(--radius); padding:24px; text-align:center; cursor:pointer; transition:border-color .2s,background .2s; margin-bottom:16px; }
+        .upload-area:hover, .upload-area.drag { border-color:var(--orange); background:rgba(249,115,22,.03); }
+        .upload-area i { font-size:24px; color:var(--muted); margin-bottom:8px; display:block; transition:color .2s; }
+        .upload-area:hover i, .upload-area.drag i { color:var(--orange); }
+        .upload-area p { font-size:13px; color:var(--muted); }
+        .upload-area .fname { font-size:13px; font-weight:600; color:var(--orange); margin-top:4px; }
+        .upload-btn { width:100%; padding:13px; background:var(--orange); color:white; border:none; border-radius:10px; font-size:15px; font-weight:700; cursor:pointer; font-family:inherit; transition:opacity .2s; display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:10px; }
+        .upload-btn:hover { opacity:.88; }
+        .upload-btn:disabled { opacity:.4; cursor:not-allowed; }
+
+        /* Progress bar */
+        .progress-wrap { display:none; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px; margin-bottom:10px; }
+        .progress-wrap.show { display:block; }
+        .progress-label { font-size:12px; color:var(--muted); margin-bottom:8px; display:flex; justify-content:space-between; }
+        .progress-bar { height:5px; background:var(--border); border-radius:3px; overflow:hidden; }
+        .progress-fill { height:100%; background:linear-gradient(90deg,var(--orange),var(--yellow)); border-radius:3px; transition:width .5s ease; width:0%; }
+
+        /* Danger zone */
+        .danger-zone { margin-top:8px; }
+        .delete-btn { width:100%; padding:12px; background:transparent; border:1px solid rgba(239,68,68,.3); border-radius:10px; font-size:14px; font-weight:600; cursor:pointer; font-family:inherit; color:var(--red); transition:all .2s; display:flex; align-items:center; justify-content:center; gap:7px; }
+        .delete-btn:hover { background:rgba(239,68,68,.06); border-color:var(--red); }
+
+        /* ══════════════════════════════════════
+           NEW PROJECT MODAL
+        ══════════════════════════════════════ */
+        .modal { position:fixed; inset:0; z-index:500; display:none; align-items:center; justify-content:center; padding:20px; }
+        .modal.open { display:flex; }
+        .modal-card { background:var(--bg); border:1px solid var(--border); border-radius:20px; padding:26px 22px; width:100%; max-width:400px; box-shadow:var(--shadow-lg); animation:modalIn .25s ease; }
+        @keyframes modalIn { from{opacity:0;transform:scale(.95)} to{opacity:1;transform:scale(1)} }
+        .modal-title { font-size:17px; font-weight:700; margin-bottom:18px; }
+        .name-hint { font-size:11px; color:var(--muted); margin-top:5px; line-height:1.5; }
+        .name-hint .url-preview { color:var(--orange); font-weight:600; word-break:break-all; }
+        .name-status { font-size:12px; margin-top:4px; min-height:16px; font-weight:500; }
+        .name-status.ok  { color:#16a34a; }
+        .name-status.err { color:var(--red); }
+        .dur-row { display:flex; gap:8px; margin-bottom:16px; }
+        .dur-pill { flex:1; padding:10px 6px; border:1px solid var(--border); border-radius:10px; text-align:center; cursor:pointer; transition:all .2s; user-select:none; }
+        .dur-pill .dur-h { font-size:15px; font-weight:700; }
+        .dur-pill .dur-label { font-size:10px; color:var(--muted); margin-top:1px; }
+        .dur-pill.active { border-color:var(--orange); background:rgba(249,115,22,.07); }
+        .dur-pill.active .dur-h { color:var(--orange); }
+        .dur-pill.locked { opacity:.5; cursor:not-allowed; position:relative; }
+        .dur-pill.locked::after { content:'PRO'; position:absolute; top:3px; right:5px; font-size:8px; font-weight:800; color:var(--orange); }
+        .modal-actions { display:flex; gap:8px; margin-top:4px; }
+        .modal-confirm { flex:1; padding:12px; background:var(--orange); color:white; border:none; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit; transition:opacity .2s; display:flex; align-items:center; justify-content:center; gap:7px; }
+        .modal-confirm:hover { opacity:.88; }
+        .modal-confirm:disabled { opacity:.4; cursor:not-allowed; }
+        .modal-cancel { padding:12px 18px; background:transparent; border:1px solid var(--border); border-radius:10px; font-size:14px; font-weight:500; cursor:pointer; font-family:inherit; color:var(--muted); transition:all .2s; }
+        .modal-cancel:hover { border-color:var(--text); color:var(--text); }
+
+        @media(max-width:400px){
+            .projects-grid { grid-template-columns:1fr 1fr; }
+            .dur-row { gap:5px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ══ AUTH ══════════════════════════════════════════════════════════ -->
+<div class="auth-wrap" id="authWrap">
+    <div class="auth-brand">
+        <div class="brand-icon">
+            <svg viewBox="0 0 36 36" fill="none"><rect x="1" y="11" width="16" height="14" rx="7" fill="none" stroke="#f97316" stroke-width="3"/><rect x="19" y="11" width="16" height="14" rx="7" fill="none" stroke="#eab308" stroke-width="3"/><rect x="16" y="13" width="4" height="10" fill="#111"/><circle cx="18" cy="18" r="2" fill="#f97316"/></svg>
+        </div>
+        <span class="brand-name">HotSpot</span>
+    </div>
+    <p class="auth-tagline">Deploy instantly. Share the link. Done.</p>
+
+    <div class="auth-card">
+        <div class="auth-tabs">
+            <div class="auth-tab active" id="tabLogin" onclick="authTab('login')">Sign In</div>
+            <div class="auth-tab" id="tabRegister" onclick="authTab('register')">Sign Up</div>
+            <div class="auth-tab" id="tabRecover" onclick="authTab('recover')" style="display:none">Recover</div>
+        </div>
+
+        <!-- Login -->
+        <div class="auth-form show" id="formLogin">
+            <div class="err-box" id="loginErr"></div>
+            <div class="field"><label>Email</label><input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="email"></div>
+            <div class="field"><label>Password</label><input type="password" id="loginPw" placeholder="Your password" autocomplete="current-password"></div>
+            <button class="auth-btn" id="loginBtn">Sign In</button>
+            <div class="auth-switch">Forgot password? <a onclick="authTab('recover')">Recover</a></div>
+        </div>
+
+        <!-- Register -->
+        <div class="auth-form" id="formRegister">
+            <div class="err-box" id="registerErr"></div>
+            <div class="field"><label>Email</label><input type="email" id="regEmail" placeholder="you@example.com" autocomplete="email"></div>
+            <div class="field"><label>Password</label><input type="password" id="regPw" placeholder="At least 6 characters" autocomplete="new-password"></div>
+            <div class="field"><label>Security Question</label>
+                <select id="regQ">
+                    <option value="">Choose a question...</option>
+                    <option>What city were you born in?</option>
+                    <option>What is your mother's maiden name?</option>
+                    <option>What was your first pet's name?</option>
+                    <option>What was the name of your primary school?</option>
+                    <option>What is your favourite food?</option>
+                    <option>What street did you grow up on?</option>
+                </select>
+            </div>
+            <div class="field"><label>Answer</label><input type="text" id="regA" placeholder="Remember this answer"></div>
+            <button class="auth-btn" id="registerBtn">Create Account</button>
+            <div class="auth-switch">Already have an account? <a onclick="authTab('login')">Sign in</a></div>
+        </div>
+
+        <!-- Recover -->
+        <div class="auth-form" id="formRecover">
+            <div class="err-box" id="recoverErr"></div>
+            <div class="field"><label>Email</label><input type="email" id="recEmail" placeholder="you@example.com"></div>
+            <div id="recStep2" style="display:none">
+                <div class="field"><label>Security Question</label><p id="recQ" style="font-size:14px;padding:8px 0;color:var(--text)"></p></div>
+                <div class="field"><label>Answer</label><input type="text" id="recA" placeholder="Your answer"></div>
+                <div class="field"><label>New Password</label><input type="password" id="recPw" placeholder="New password (min 6 chars)"></div>
+            </div>
+            <button class="auth-btn" id="recoverBtn">Continue</button>
+            <div class="auth-switch"><a onclick="authTab('login')">← Back to sign in</a></div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ APP SHELL ══════════════════════════════════════════════════════ -->
+<div class="app-shell" id="appShell">
+
+    <!-- Header -->
+    <header class="app-header">
+        <div style="display:flex;align-items:center;gap:10px">
+            <button class="back-btn" id="backBtn" onclick="showDashboard()">
+                <i class="fas fa-arrow-left"></i> Projects
+            </button>
+            <div class="header-brand" id="headerBrand">
+                <div class="header-brand-icon">
+                    <svg viewBox="0 0 36 36" fill="none"><rect x="1" y="11" width="16" height="14" rx="7" fill="none" stroke="#f97316" stroke-width="3"/><rect x="19" y="11" width="16" height="14" rx="7" fill="none" stroke="#eab308" stroke-width="3"/><rect x="16" y="13" width="4" height="10" fill="#111"/><circle cx="18" cy="18" r="2" fill="#f97316"/></svg>
+                </div>
+                <span class="header-brand-name">HotSpot</span>
+            </div>
+        </div>
+        <div class="header-right">
+            <button class="hdr-btn" id="themeBtn" title="Toggle theme"><i class="fas fa-moon" id="themeIcon"></i></button>
+            <button class="hdr-btn" id="logoutBtn" title="Logout"><i class="fas fa-sign-out-alt"></i></button>
+        </div>
+    </header>
+
+    <!-- Dashboard -->
+    <div id="dashboard" class="dashboard">
+        <p class="dash-greeting" id="greeting">Your Projects</p>
+        <p class="dash-sub" id="dashSub">Loading...</p>
+        <div class="projects-grid" id="projectsGrid"></div>
+    </div>
+
+    <!-- Project Detail -->
+    <div id="projDetail" class="proj-detail">
+        <div class="detail-header">
+            <div class="detail-name" id="detailName"></div>
+            <div class="detail-url">
+                <a id="detailUrl" href="#" target="_blank" rel="noopener"></a>
+                <button class="copy-url-btn" id="copyUrlBtn" title="Copy link"><i class="fas fa-copy"></i></button>
+            </div>
+        </div>
+
+        <!-- Timer -->
+        <div class="detail-timer-wrap">
+            <div class="dtimer-left">
+                <i class="fas fa-clock"></i>
+                <div>
+                    <div class="dtimer-label">Time remaining</div>
+                    <div class="dtimer-val" id="detailTimer">--:--:--</div>
+                </div>
+            </div>
+            <div id="detailStatusBadge"></div>
+        </div>
+
+        <!-- Upgrade card (free tier) -->
+        <div class="upgrade-card" id="upgradeCard">
+            <h4>🔥 Want more time?</h4>
+            <p>Free projects run for 24h. Upgrade to Pro for 48h or Premium for 72h per project.</p>
+            <div class="upgrade-tiers">
+                <button class="upgrade-tier pro" onclick="upgradeClick('pro')">Pro — 48h</button>
+                <button class="upgrade-tier premium" onclick="upgradeClick('premium')">Premium — 72h</button>
+            </div>
+        </div>
+
+        <!-- Files -->
+        <div class="files-section">
+            <div class="files-label">Files <span id="filesCount"></span></div>
+            <div id="filesList"></div>
+        </div>
+
+        <!-- Upload -->
+        <div class="upload-area" id="uploadArea">
+            <i class="fas fa-cloud-upload-alt"></i>
+            <p>Tap to upload your HTML file</p>
+            <div class="fname" id="uploadFname"></div>
+        </div>
+        <input type="file" id="fileInput" accept=".html" style="display:none">
+
+        <div class="progress-wrap" id="progressWrap">
+            <div class="progress-label">
+                <span id="progressLabel">Deploying to GitHub...</span>
+                <span id="progressPct">0%</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        </div>
+
+        <button class="upload-btn" id="uploadBtn" disabled>
+            <i class="fas fa-bolt"></i> Deploy File
+        </button>
+
+        <!-- Delete -->
+        <div class="danger-zone">
+            <button class="delete-btn" id="deleteBtn">
+                <i class="fas fa-trash"></i> Delete Project
+            </button>
+        </div>
+    </div>
+
+</div>
+
+<!-- ══ NEW PROJECT MODAL ═════════════════════════════════════════════ -->
+<div class="backdrop" id="backdrop" onclick="closeModal()"></div>
+<div class="modal" id="newProjModal">
+    <div class="modal-card">
+        <div class="modal-title">New Project</div>
+        <div class="field">
+            <label>Project Name</label>
+            <input type="text" id="newProjName" placeholder="my-project" autocomplete="off" spellcheck="false" maxlength="30">
+            <div class="name-status" id="nameStatus"></div>
+            <div class="name-hint">Your site will be live at:<br><span class="url-preview" id="urlPreview">hotspot.afric.site/—</span></div>
+        </div>
+        <div class="field">
+            <label>Duration</label>
+            <div class="dur-row">
+                <div class="dur-pill active" data-h="24" onclick="selectDur(this)">
+                    <div class="dur-h">24h</div>
+                    <div class="dur-label">Free</div>
+                </div>
+                <div class="dur-pill locked" data-h="48" onclick="upgradeClick('pro')">
+                    <div class="dur-h">48h</div>
+                    <div class="dur-label">Pro</div>
+                </div>
+                <div class="dur-pill locked" data-h="72" onclick="upgradeClick('premium')">
+                    <div class="dur-h">72h</div>
+                    <div class="dur-label">Premium</div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="modal-cancel" onclick="closeModal()">Cancel</button>
+            <button class="modal-confirm" id="createProjBtn" disabled>
+                <i class="fas fa-plus"></i> Create
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+'use strict';
+
+const API = 'https://emltechstudio-hotspot.hf.space';
+const BASE = 'https://hotspot.afric.site';
+
+// ── State ────────────────────────────────────────────────────────────
+let token    = localStorage.getItem('hs-token') || '';
+let userEmail = localStorage.getItem('hs-email') || '';
+let projects = [];
+let currentProject = null;
+let selectedDur = 24;
+let selectedFile = null;
+let nameCheckTimer = null;
+let recoverStep = 1;
+let detailTimerInterval = null;
+let cardTimerIntervals = {};
+
+// ── Boot ─────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    applyTheme(localStorage.getItem('hs-theme') === 'dark');
+    if (token && userEmail) {
+        showApp();
+        loadProjects();
+    }
+    bindEvents();
+});
+
+function bindEvents() {
+    // Auth
+    document.getElementById('loginBtn').addEventListener('click', doLogin);
+    document.getElementById('registerBtn').addEventListener('click', doRegister);
+    document.getElementById('recoverBtn').addEventListener('click', doRecover);
+    ['loginEmail','loginPw'].forEach(id => el(id).addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); }));
+    ['regEmail','regPw','regA'].forEach(id => el(id).addEventListener('keydown', e => { if(e.key==='Enter') doRegister(); }));
+
+    // App header
+    document.getElementById('themeBtn').addEventListener('click', () => applyTheme(document.body.getAttribute('data-theme') !== 'dark'));
+    document.getElementById('logoutBtn').addEventListener('click', logout);
+
+    // Modal name check
+    document.getElementById('newProjName').addEventListener('input', onNameInput);
+
+    // File upload
+    document.getElementById('uploadArea').addEventListener('click', () => el('fileInput').click());
+    document.getElementById('fileInput').addEventListener('change', e => { if(e.target.files[0]) handleFile(e.target.files[0]); });
+    document.getElementById('uploadArea').addEventListener('dragover', e => { e.preventDefault(); el('uploadArea').classList.add('drag'); });
+    document.getElementById('uploadArea').addEventListener('dragleave', () => el('uploadArea').classList.remove('drag'));
+    document.getElementById('uploadArea').addEventListener('drop', e => { e.preventDefault(); el('uploadArea').classList.remove('drag'); if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+    document.getElementById('uploadBtn').addEventListener('click', doUpload);
+
+    // Copy URL
+    document.getElementById('copyUrlBtn').addEventListener('click', () => {
+        const url = el('detailUrl').textContent;
+        navigator.clipboard.writeText(url).then(() => toast('Link copied!', 'ok'));
+    });
+
+    // Delete
+    document.getElementById('deleteBtn').addEventListener('click', doDelete);
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────
+const el = id => document.getElementById(id);
+
+function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function toast(msg, type = 'info') {
+    document.querySelectorAll('.toast').forEach(t => t.remove());
+    const t = document.createElement('div');
+    t.className = `toast ${type}`;
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => { t.style.transition = 'opacity .3s'; t.style.opacity = '0'; setTimeout(() => t.remove(), 320); }, 2800);
+}
+
+function setLoading(btn, loading, text = '') {
+    btn.disabled = loading;
+    if (loading) {
+        btn._orig = btn.innerHTML;
+        btn.innerHTML = `<span class="spin"></span>${text ? ' ' + text : ''}`;
+    } else {
+        btn.innerHTML = btn._orig || btn.innerHTML;
+        btn.disabled = false;
+    }
+}
+
+async function api(method, path, body) {
+    const opts = { method, headers: { 'Content-Type': 'application/json' } };
+    if (token) opts.headers['Authorization'] = `Bearer ${token}`;
+    if (body) opts.body = JSON.stringify(body);
+    const r = await fetch(API + path, opts);
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || 'Something went wrong');
+    return data;
+}
+
+async function apiForm(path, form) {
+    const r = await fetch(API + path, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: form });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || 'Something went wrong');
+    return data;
+}
+
+// ── Theme ─────────────────────────────────────────────────────────────
+function applyTheme(dark) {
+    dark ? document.body.setAttribute('data-theme','dark') : document.body.removeAttribute('data-theme');
+    el('themeIcon').className = dark ? 'fas fa-sun' : 'fas fa-moon';
+    localStorage.setItem('hs-theme', dark ? 'dark' : 'light');
+}
+
+// ── Auth views ────────────────────────────────────────────────────────
+function authTab(tab) {
+    ['login','register','recover'].forEach(t => {
+        el('tab' + cap(t)).classList.toggle('active', t === tab);
+        el('form' + cap(t)).classList.toggle('show', t === tab);
+    });
+    el('tabRecover').style.display = tab === 'recover' ? 'flex' : 'none';
+    recoverStep = 1;
+    el('recStep2').style.display = 'none';
+    el('recoverBtn').textContent = 'Continue';
+}
+
+function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+function showAuth() {
+    el('authWrap').style.display = 'flex';
+    el('appShell').classList.remove('show');
+}
+
+function showApp() {
+    el('authWrap').style.display = 'none';
+    el('appShell').classList.add('show');
+    const name = userEmail.split('@')[0];
+    el('greeting').textContent = `Hey, ${name} 👋`;
+}
+
+// ── Auth actions ──────────────────────────────────────────────────────
+async function doLogin() {
+    const em = el('loginEmail').value.trim();
+    const pw = el('loginPw').value;
+    if (!em || !pw) { showErr('loginErr', 'Please fill all fields'); return; }
+    setLoading(el('loginBtn'), true);
+    try {
+        const r = await api('POST', '/api/login', { email: em, password: pw });
+        saveSession(r.token, r.email);
+        showApp();
+        loadProjects();
+    } catch(e) { showErr('loginErr', e.message); }
+    finally { setLoading(el('loginBtn'), false); }
+}
+
+async function doRegister() {
+    const em = el('regEmail').value.trim();
+    const pw = el('regPw').value;
+    const q  = el('regQ').value;
+    const a  = el('regA').value.trim();
+    if (!em || !pw || !q || !a) { showErr('registerErr', 'Please fill all fields'); return; }
+    setLoading(el('registerBtn'), true);
+    try {
+        const r = await api('POST', '/api/register', { email: em, password: pw, security_question: q, security_answer: a });
+        saveSession(r.token, r.email);
+        showApp();
+        loadProjects();
+    } catch(e) { showErr('registerErr', e.message); }
+    finally { setLoading(el('registerBtn'), false); }
+}
+
+async function doRecover() {
+    if (recoverStep === 1) {
+        const em = el('recEmail').value.trim();
+        if (!em) { showErr('recoverErr', 'Enter your email'); return; }
+        setLoading(el('recoverBtn'), true);
+        try {
+            const r = await api('GET', `/api/security-question?email=${encodeURIComponent(em)}`);
+            el('recQ').textContent = r.question;
+            el('recStep2').style.display = 'block';
+            el('recoverBtn').textContent = 'Reset Password';
+            recoverStep = 2;
+            hideErr('recoverErr');
+        } catch(e) { showErr('recoverErr', e.message); }
+        finally { setLoading(el('recoverBtn'), false); }
+    } else {
+        const em = el('recEmail').value.trim();
+        const a  = el('recA').value.trim();
+        const pw = el('recPw').value;
+        if (!a || !pw) { showErr('recoverErr', 'Fill all fields'); return; }
+        setLoading(el('recoverBtn'), true);
+        try {
+            const r = await api('POST', '/api/recover', { email: em, security_answer: a, new_password: pw });
+            saveSession(r.token, r.email);
+            showApp();
+            loadProjects();
+        } catch(e) { showErr('recoverErr', e.message); }
+        finally { setLoading(el('recoverBtn'), false); }
+    }
+}
+
+function saveSession(t, em) {
+    token = t; userEmail = em;
+    localStorage.setItem('hs-token', t);
+    localStorage.setItem('hs-email', em);
+}
+
+function logout() {
+    token = ''; userEmail = ''; projects = [];
+    localStorage.removeItem('hs-token');
+    localStorage.removeItem('hs-email');
+    showAuth();
+}
+
+function showErr(id, msg) { const e = el(id); e.textContent = msg; e.style.display = 'block'; }
+function hideErr(id) { el(id).style.display = 'none'; }
+
+// ── Dashboard ─────────────────────────────────────────────────────────
+async function loadProjects() {
+    try {
+        const r = await api('GET', '/api/sites');
+        projects = r.sites || [];
+        el('dashSub').textContent = `${projects.length} active project${projects.length !== 1 ? 's' : ''}`;
+        renderGrid();
+    } catch(e) {
+        el('dashSub').textContent = 'Could not load projects';
+        toast('Failed to load projects', 'error');
+    }
+}
+
+function renderGrid() {
+    // Clear existing card timers
+    Object.values(cardTimerIntervals).forEach(clearInterval);
+    cardTimerIntervals = {};
+
+    const grid = el('projectsGrid');
+    grid.innerHTML = '';
+
+    projects.forEach(p => {
+        const card = document.createElement('div');
+        const exp = new Date(p.expires_at);
+        const msleft = exp - new Date();
+        const expiring = msleft > 0 && msleft < 3600000; // under 1 hour
+
+        card.className = `proj-card${expiring ? ' expiring' : ''}`;
+        card.innerHTML = `
+            <div class="proj-status ${expiring ? 'expiring-soon' : 'live'}">
+                <span class="dot"></span> ${expiring ? 'EXPIRING' : 'LIVE'}
+            </div>
+            <div class="proj-name">${escHtml(p.sitename)}</div>
+            <div class="proj-timer ${expiring ? 'urgent' : ''}" id="ctimer-${p.sitename}">
+                <i class="fas fa-clock"></i> <span>--</span>
+            </div>
+            <div class="proj-files"><i class="fas fa-file-code" style="color:var(--orange);margin-right:4px;font-size:10px"></i>1 file</div>
+            ${expiring ? `<div class="extend-banner">Almost expired! <button onclick="event.stopPropagation();upgradeClick('pro')">Extend</button></div>` : ''}
+        `;
+        card.addEventListener('click', () => openProject(p));
+        grid.appendChild(card);
+        startCardTimer(p.sitename, exp);
+    });
+
+    // Add card
+    const addCard = document.createElement('div');
+    addCard.className = 'proj-card add';
+    addCard.innerHTML = `<i class="fas fa-plus add-icon"></i><span class="add-label">New Project</span>`;
+    addCard.addEventListener('click', openModal);
+    grid.appendChild(addCard);
+}
+
+function startCardTimer(name, expDate) {
+    function tick() {
+        const span = document.querySelector(`#ctimer-${name} span`);
+        if (!span) { clearInterval(cardTimerIntervals[name]); return; }
+        const diff = expDate - new Date();
+        if (diff <= 0) { span.textContent = 'Expired'; loadProjects(); return; }
+        const h = Math.floor(diff/3600000);
+        const m = Math.floor((diff%3600000)/60000);
+        const s = Math.floor((diff%60000)/1000);
+        span.textContent = h > 0 ? `${h}h ${m}m` : `${m}m ${s}s`;
+    }
+    tick();
+    cardTimerIntervals[name] = setInterval(tick, 1000);
+}
+
+function showDashboard() {
+    el('dashboard').style.display = 'block';
+    el('projDetail').classList.remove('show');
+    el('backBtn').classList.remove('show');
+    el('headerBrand').style.display = 'flex';
+    currentProject = null;
+    if (detailTimerInterval) { clearInterval(detailTimerInterval); detailTimerInterval = null; }
+    loadProjects();
+}
+
+// ── Project detail ────────────────────────────────────────────────────
+function openProject(p) {
+    currentProject = p;
+    el('dashboard').style.display = 'none';
+    el('projDetail').classList.add('show');
+    el('backBtn').classList.add('show');
+    el('headerBrand').style.display = 'none';
+
+    const url = `${BASE}/${p.sitename}/`;
+    el('detailName').textContent = p.sitename;
+    el('detailUrl').textContent = url;
+    el('detailUrl').href = url;
+
+    // Reset file picker
+    selectedFile = null;
+    el('uploadFname').textContent = '';
+    el('uploadBtn').disabled = true;
+    el('fileInput').value = '';
+    el('progressWrap').classList.remove('show');
+
+    // Files list — for MVP always index.html
+    el('filesList').innerHTML = `
+        <div class="file-row">
+            <i class="fas fa-file-code"></i>
+            <span class="file-row-name">index.html</span>
+            <span class="file-row-size">Deployed</span>
+        </div>
+    `;
+    el('filesCount').textContent = '1 file';
+
+    // Upgrade card — only show for 24h (free) projects
+    el('upgradeCard').style.display = p.duration_hours === 24 ? 'block' : 'none';
+
+    // Start detail timer
+    if (detailTimerInterval) clearInterval(detailTimerInterval);
+    const expDate = new Date(p.expires_at);
+    function tickDetail() {
+        const diff = expDate - new Date();
+        const timerEl = el('detailTimer');
+        if (diff <= 0) {
+            timerEl.textContent = 'Expired';
+            timerEl.classList.add('urgent');
+            clearInterval(detailTimerInterval);
+            return;
+        }
+        const h = Math.floor(diff/3600000);
+        const m = Math.floor((diff%3600000)/60000);
+        const s = Math.floor((diff%60000)/1000);
+        timerEl.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        timerEl.classList.toggle('urgent', diff < 3600000);
+    }
+    tickDetail();
+    detailTimerInterval = setInterval(tickDetail, 1000);
+
+    // Status badge
+    const diff = expDate - new Date();
+    const badge = el('detailStatusBadge');
+    if (diff < 3600000 && diff > 0) {
+        badge.innerHTML = `<span class="proj-status expiring-soon"><span class="dot"></span> EXPIRING</span>`;
+    } else if (diff > 0) {
+        badge.innerHTML = `<span class="proj-status live"><span class="dot"></span> LIVE</span>`;
+    } else {
+        badge.innerHTML = `<span class="proj-status empty">EXPIRED</span>`;
+    }
+}
+
+// ── File handling ─────────────────────────────────────────────────────
+function handleFile(f) {
+    if (!f.name.endsWith('.html')) { toast('Only .html files allowed', 'error'); return; }
+    if (f.size > 5 * 1024 * 1024) { toast('File too large (max 5MB)', 'error'); return; }
+    selectedFile = f;
+    el('uploadFname').textContent = f.name;
+    el('uploadBtn').disabled = false;
+}
+
+async function doUpload() {
+    if (!selectedFile || !currentProject) return;
+    el('uploadBtn').disabled = true;
+    el('uploadBtn').innerHTML = '<span class="spin"></span> Deploying...';
+
+    // Show progress
+    el('progressWrap').classList.add('show');
+    let pct = 0;
+    el('progressLabel').textContent = 'Uploading to GitHub...';
+
+    // Fake progress — real deploy takes 30–60s
+    const progressInterval = setInterval(() => {
+        if (pct < 85) {
+            pct += Math.random() * 8;
+            pct = Math.min(pct, 85);
+            el('progressFill').style.width = pct + '%';
+            el('progressPct').textContent = Math.round(pct) + '%';
+            if (pct > 40) el('progressLabel').textContent = 'GitHub Pages deploying...';
+            if (pct > 70) el('progressLabel').textContent = 'Almost live...';
+        }
+    }, 800);
+
+    try {
+        const form = new FormData();
+        form.append('file', selectedFile);
+        form.append('sitename', currentProject.sitename);
+        form.append('duration', currentProject.duration_hours);
+        await apiForm('/api/upload', form);
+
+        clearInterval(progressInterval);
+        el('progressFill').style.width = '100%';
+        el('progressPct').textContent = '100%';
+        el('progressLabel').textContent = 'Site is live!';
+
+        setTimeout(() => {
+            el('progressWrap').classList.remove('show');
+            toast('🔥 Site is live!', 'ok');
+            selectedFile = null;
+            el('uploadFname').textContent = '';
+            el('uploadBtn').innerHTML = '<i class="fas fa-bolt"></i> Deploy File';
+            el('uploadBtn').disabled = true;
+            el('fileInput').value = '';
+        }, 1200);
+    } catch(e) {
+        clearInterval(progressInterval);
+        el('progressWrap').classList.remove('show');
+        toast(e.message, 'error');
+        el('uploadBtn').innerHTML = '<i class="fas fa-bolt"></i> Deploy File';
+        el('uploadBtn').disabled = false;
+    }
+}
+
+async function doDelete() {
+    if (!currentProject) return;
+    if (!confirm(`Delete "${currentProject.sitename}"? This cannot be undone.`)) return;
+    setLoading(el('deleteBtn'), true, 'Deleting...');
+    try {
+        await api('DELETE', `/api/site/${currentProject.sitename}`);
+        toast('Project deleted', 'ok');
+        showDashboard();
+    } catch(e) {
+        toast(e.message, 'error');
+        setLoading(el('deleteBtn'), false);
+    }
+}
+
+// ── New project modal ─────────────────────────────────────────────────
+function openModal() {
+    el('newProjName').value = '';
+    el('nameStatus').textContent = '';
+    el('urlPreview').textContent = 'hotspot.afric.site/—';
+    el('createProjBtn').disabled = true;
+    selectedDur = 24;
+    document.querySelectorAll('.dur-pill:not(.locked)').forEach(p => p.classList.toggle('active', p.dataset.h === '24'));
+    el('backdrop').classList.add('open');
+    el('newProjModal').classList.add('open');
+    setTimeout(() => el('newProjName').focus(), 100);
+}
+
+function closeModal() {
+    el('backdrop').classList.remove('open');
+    el('newProjModal').classList.remove('open');
+    clearTimeout(nameCheckTimer);
+}
+
+function selectDur(pill) {
+    if (pill.classList.contains('locked')) return;
+    document.querySelectorAll('.dur-pill').forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+    selectedDur = +pill.dataset.h;
+}
+
+function onNameInput() {
+    const val = el('newProjName').value.toLowerCase().replace(/[^a-z0-9-]/g,'');
+    el('newProjName').value = val;
+    el('urlPreview').textContent = val ? `hotspot.afric.site/${val}/` : 'hotspot.afric.site/—';
+    el('nameStatus').textContent = '';
+    el('createProjBtn').disabled = true;
+    clearTimeout(nameCheckTimer);
+    if (val.length >= 3) {
+        nameCheckTimer = setTimeout(() => checkName(val), 600);
+    }
+}
+
+async function checkName(name) {
+    el('nameStatus').textContent = '...';
+    try {
+        const r = await api('GET', `/api/check/${encodeURIComponent(name)}`);
+        el('nameStatus').textContent = r.available ? '✓ Available' : `✗ ${r.reason}`;
+        el('nameStatus').className = 'name-status ' + (r.available ? 'ok' : 'err');
+        el('createProjBtn').disabled = !r.available;
+    } catch {
+        el('nameStatus').textContent = 'Could not check availability';
+        el('nameStatus').className = 'name-status err';
+    }
+}
+
+async function createProject() {
+    const name = el('newProjName').value.trim();
+    if (!name || el('createProjBtn').disabled) return;
+
+    setLoading(el('createProjBtn'), true);
+    try {
+        // Create project by doing a placeholder upload
+        // We create a minimal index.html as placeholder
+        const placeholder = new Blob(
+            [`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${name}</title></head><body><p>Upload your file to go live.</p></body></html>`],
+            { type: 'text/html' }
+        );
+        const form = new FormData();
+        form.append('file', new File([placeholder], 'index.html', { type: 'text/html' }));
+        form.append('sitename', name);
+        form.append('duration', selectedDur);
+        const r = await apiForm('/api/upload', form);
+        closeModal();
+        toast(`Project "${name}" created!`, 'ok');
+        await loadProjects();
+        // Auto-open the new project
+        const newProj = projects.find(p => p.sitename === name);
+        if (newProj) openProject(newProj);
+    } catch(e) {
+        toast(e.message, 'error');
+    } finally {
+        setLoading(el('createProjBtn'), false);
+    }
+}
+
+// Wire up create button
+document.addEventListener('DOMContentLoaded', () => {
+    el('createProjBtn').addEventListener('click', createProject);
+});
+
+// ── Upgrade (payment-ready stub) ──────────────────────────────────────
+function upgradeClick(tier) {
+    toast('Upgrade coming soon — stay tuned! 🔥', 'info');
+    // TODO: wire to payment when ready
+}
+
+// ── Service Worker ────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
